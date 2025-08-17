@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CliJo</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background-color: #121212;
+      color: #fff;
+      height: 100vh;
+    }
+
+    /* Hero Section */
+    #hero {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* 3D Background */
+    #background-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+
+    /* Content in the middle */
+    .hero-content {
+      text-align: center;
+      opacity: 0;
+      transform: translateY(50px);
+      transition: opacity 1s ease, transform 1s ease;
+      padding: 20px;
+      z-index: 1;
+    }
+
+    .hero-content.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .hero-headline {
+      font-size: 3em;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .hero-subheadline {
+      font-size: 1.5em;
+      color: #ccc;
+      margin-bottom: 30px;
+    }
+
+    /* Explore Button */
+    .hero-button {
+      display: inline-block;
+      padding: 15px 35px;
+      font-size: 1.2em;
+      font-weight: bold;
+      text-decoration: none;
+      color: #fff;
+      background: linear-gradient(45deg, #007bff, #00d4ff);
+      border-radius: 30px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(0, 123, 255, 0.6);
+    }
+
+    .hero-button:hover {
+      background: linear-gradient(45deg, #0056b3, #0099cc);
+      box-shadow: 0 0 25px rgba(0, 123, 255, 1);
+      transform: translateY(-3px);
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      background: #1e1e1e;
+      padding: 10px 0;
+      z-index: 1000;
+      border-top: 1px solid #333;
+    }
+
+    .bottom-nav button {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 1em;
+      cursor: pointer;
+      padding: 8px 12px;
+      transition: color 0.2s;
+    }
+
+    .bottom-nav button:hover {
+      color: #ffcc00;
+    }
+
+    /* Slide Bar Drawer */
+    .slide-bar {
+      position: fixed;
+      bottom: -30%;
+      left: 0;
+      width: 100%;
+      height: 30%;
+      background: rgba(44,44,44,0.95);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+      transition: bottom 0.35s ease;
+      padding: 15px 20px;
+      z-index: 999;
+      overflow-y: auto;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
+    .slide-bar.active {
+      bottom: 50px;
+    }
+
+    .slide-bar h2 {
+      margin: 0 0 10px;
+      font-size: 1.2em;
+      color: #ffcc00;
+    }
+
+    .slide-bar p {
+      font-size: 0.9em;
+      line-height: 1.4em;
+      color: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <section id="hero">
+    <canvas id="background-canvas"></canvas>
+
+    <div class="hero-content">
+      <h1 class="hero-headline">CliJo</h1>
+      <p class="hero-subheadline">Where Logic Becomes Art</p>
+      <a href="explore.html" class="hero-button">Explore</a>
+    </div>
+  </section>
+
+  <!-- Slide Bars -->
+  <div id="aboutBar" class="slide-bar">
+    <h2>About</h2>
+    <p>This is the About section inside a compact slide bar.</p>
+  </div>
+
+  <div id="projectsBar" class="slide-bar">
+    <h2>Projects</h2>
+    <p>Some cool projects go here.</p>
+  </div>
+
+  <div id="contactBar" class="slide-bar">
+    <h2>Contact</h2>
+	<li>
+	<a href="https://www.facebook.com/clint.johnryl.henon.dagno.2025/" target="Facebook">Link to Facebook</a>
+	</li>
+	<li>
+	<a href="https://www.tiktok.com/@javew_xasemba" target="tiktok">Link to Tiktok</a>
+	</li>
+	<li>
+	<a href="https://www.instagram.com/clintjohnrylhenondagno/" target="instagram">Link to Instagram</a>
+	</li>
+	<li>
+	<a href="https://github.com/ClintJohnryl" target="github">Link to Github</a>
+	</li>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <button onclick="toggleBar('aboutBar')">About</button>
+    <button onclick="toggleBar('projectsBar')">Projects</button>
+    <button onclick="toggleBar('contactBar')">Contact</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // THREE.js Background
+    const canvas = document.getElementById('background-canvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+
+    const geometry = new THREE.IcosahedronGeometry(5, 2);
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x007bff,
+      flatShading: true,
+      shininess: 30
+    });
+
+    const icosahedron = new THREE.Mesh(geometry, material);
+    scene.add(icosahedron);
+
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(5, 3, 5);
+    scene.add(directionalLight);
+
+    camera.position.z = 15;
+
+    // Particles
+    const particleGeometry = new THREE.BufferGeometry();
+    const particleCount = 500;
+    const posArray = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount * 3; i++) {
+      posArray[i] = (Math.random() - 0.5) * 30;
+    }
+
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+      size: 0.1,
+      color: 0xffffff
+    });
+
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particles);
+
+    // Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      icosahedron.rotation.x += 0.005;
+      icosahedron.rotation.y += 0.01;
+
+      particles.rotation.x += 0.002;
+      particles.rotation.y += 0.003;
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', onWindowResize, false);
+
+    // Hero Content Animation
+    const heroContent = document.querySelector('.hero-content');
+    setTimeout(() => {
+      heroContent.classList.add('active');
+    }, 500);
+
+    // Drawer Toggle
+    let activeBar = null;
+    function toggleBar(id) {
+      const bar = document.getElementById(id);
+
+      if (activeBar && activeBar !== bar) {
+        activeBar.classList.remove("active");
+      }
+
+      bar.classList.toggle("active");
+      activeBar = bar.classList.contains("active") ? bar : null;
+    }
+  </script>
+</body>
+</html>
