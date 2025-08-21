@@ -1,31 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CliJo - Quantum Strike </title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CliJo - Quantum Strike</title>
 <link rel="icon" href="logo.png" type="image/png">
 <style>
 body { margin:0; overflow:hidden; background:black; touch-action:none; }
 canvas { display:block; }
+
+/* HUD */
 #scoreboard, #levelDisplay, #healthDisplay {
-  position:absolute; color:cyan; font:20px Arial; top:10px;
+  position:absolute; color:cyan; font:20px Orbitron, Arial; top:10px; text-shadow:0 0 6px cyan;
 }
 #levelDisplay { left:10px; }
 #scoreboard { right:10px; }
-#healthDisplay { left:10px; top:40px; color:red; }
+#healthDisplay { left:10px; top:40px; color:rgb(255,80,80); text-shadow:0 0 6px red; }
+
+/* Mobile Controls */
 #mobileControls {
   position:absolute; bottom:30px; width:100%;
   display:flex; justify-content:space-between; padding:0 20px;
 }
 #mobileControls button {
-  font-size:24px; width:60px; height:60px; margin:5px;
-  border:none; border-radius:10px; background:rgba(0,255,255,0.3); color:white;
+  font-size:26px; width:70px; height:70px; margin:5px;
+  border:none; border-radius:15px;
+  background:rgba(0,255,255,0.25); color:white;
+  box-shadow:0 0 15px cyan inset, 0 0 10px cyan;
+  transition:0.1s;
 }
+#mobileControls button:active { transform:scale(0.9); background:rgba(0,255,255,0.5); }
+
+/* Back to Menu */
 #menuButton {
   position:absolute; top:70px; left:10px; font-size:18px; padding:5px 10px;
-  background:rgba(255,0,0,0.5); color:white; border:none; border-radius:5px;
+  background:rgba(255,0,0,0.6); color:white; border:none; border-radius:5px;
+  box-shadow:0 0 10px red;
 }
+
+/* Defeat Overlay */
+#defeatOverlay {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.9);
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  color:white; font-family:Orbitron, Arial; font-size:24px;
+  visibility:hidden; opacity:0; transition:opacity 0.5s;
+}
+#defeatOverlay.show { visibility:visible; opacity:1; }
+#defeatOverlay h1 { color:red; font-size:40px; text-shadow:0 0 15px red; }
+#defeatOverlay p { margin:10px 0; }
+.defeatBtn {
+  margin-top:20px; padding:12px 24px; font-size:20px;
+  background:rgba(0,255,255,0.2); border:2px solid cyan; border-radius:10px;
+  color:white; cursor:pointer;
+  box-shadow:0 0 15px cyan;
+}
+
+/* Upgrade Overlay */
+#upgradeOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+#upgradeOverlay.show { display: flex; }
+#upgradeChoices {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.upgradeBtn {
+  background: #2563eb;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: transform .2s;
+}
+.upgradeBtn:hover { transform: scale(1.05); background:#1d4ed8; }
+
+.defeatBtn:hover { background:rgba(0,255,255,0.5); }
 </style>
 </head>
 <body>
@@ -36,10 +94,26 @@ canvas { display:block; }
 <div id="healthDisplay">Health: 5</div>
 <a id="menuButton" href="games.html">Back to Menu</a>
 
+<!-- Defeat Screen -->
+<div id="defeatOverlay">
+  <h1>GAME OVER</h1>
+  <p id="finalScore">Score: 0</p>
+  <p id="finalLevel">Level: 1</p>
+  <button class="defeatBtn" onclick="restartGame()">Retry</button>
+  <button class="defeatBtn" onclick="window.location.href='games.html'">Menu</button>
+</div>
+
+<!-- Upgrade Overlay -->
+<div id="upgradeOverlay" class="overlay">
+  <div class="overlay-content" style="background:#11182a; padding:22px; border-radius:12px; text-align:center; max-width:420px; width:90%;">
+    <h2 style="color:white; margin-bottom:12px;">Choose an Upgrade</h2>
+    <div id="upgradeChoices"></div>
+  </div>
+</div>
+
+<!-- Mobile Controls -->
 <div id="mobileControls">
   <div>
-    <button id="btnLeft">◀</button>
-    <button id="btnRight">▶</button>
     <button id="btnUp">▲</button>
     <button id="btnDown">▼</button>
   </div>
@@ -47,113 +121,216 @@ canvas { display:block; }
 </div>
 
 <script>
+/* =================== Basic setup =================== */
 const canvas = document.getElementById('spaceCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let score=0, level=1, playerHealth=5;
-let bullets=[], enemies=[], activeCompanions=[];
-let keys={}, isGameOver=false;
+/* =================== Game state =================== */
+let score = 0, level = 1, playerHealth = 5;
+let bullets = [], enemies = [], activeCompanions = [];
+let keys = {}, isGameOver = false, isPaused = false;
 
+/* =================== Player upgrades (only these) =================== */
+let playerBulletDamage = 1;   // "+1 Damage"
+let playerBulletCount = 1;    // "+1 Bullet"
+let fireRateMs = 400;         // "-Cooldown" reduces this (min enforced)
+let lastShot = 0;
+
+/* =================== Time / RAF control =================== */
+let running = false, rafId = null, lastTimestamp = 0;
+const FRAME_MS = 1000 / 60;
+
+/* =================== Mobile swipe ------------------ */
+let touchStartX = 0, touchStartY = 0, touchActive = false;
+canvas.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  touchStartX = t.clientX; touchStartY = t.clientY; touchActive = true;
+});
+canvas.addEventListener('touchmove', (e) => {
+  if (!touchActive) return;
+  const t = e.touches[0];
+  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 30) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
+    else if (dx < -30) { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
+  }
+});
+canvas.addEventListener('touchend', () => { keys['ArrowLeft'] = false; keys['ArrowRight'] = false; touchActive = false; });
+
+/* =================== Entities =================== */
+/* NOTE: speeds are time-based (px/sec) to avoid any frame-count dependence -> prevents "speeding up" */
 class Player {
   constructor(x,y,name='',isComp=false){
-    this.x=x; this.y=y; this.width=20; this.height=20;
-    this.color=isComp?'lime':'#00ffff'; this.speed=isComp?6:10;
-    this.isCompanion=isComp; this.name=name; this.cooldown=0;
+    this.x = x; this.y = y;
+    this.width = 20; this.height = 20;
+    this.color = isComp ? 'lime' : '#00ffff';
+    // convert previous frame-based speeds (6/10 px/frame) -> px/sec at 60fps
+    this.speed = isComp ? 6 * 60 : 10 * 60; // px/sec
+    this.isCompanion = isComp;
+    this.name = name;
+    this.lastFire = 0;
+    this.fireIntervalMs = 20 * FRAME_MS; // companion default firing interval in ms (20 frames)
+    this.cooldown = 0;
   }
   draw(){
-    ctx.shadowBlur=15; ctx.shadowColor=this.color;
+    ctx.shadowBlur = 15; ctx.shadowColor = this.color;
     ctx.beginPath(); ctx.moveTo(this.x,this.y);
-    ctx.lineTo(this.x-this.width/2,this.y+this.height);
-    ctx.lineTo(this.x+this.width/2,this.y+this.height);
-    ctx.closePath(); ctx.fillStyle=this.color; ctx.fill();
-    ctx.shadowBlur=0;
-    if(this.name){ctx.fillStyle='white';ctx.font='12px Arial';ctx.textAlign='center';ctx.fillText(this.name,this.x,this.y-8);}
+    ctx.lineTo(this.x - this.width/2, this.y + this.height);
+    ctx.lineTo(this.x + this.width/2, this.y + this.height);
+    ctx.closePath(); ctx.fillStyle = this.color; ctx.fill();
+    ctx.shadowBlur = 0;
+    if (this.name) {
+      ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(this.name, this.x, this.y - 8);
+    }
   }
-  update(){
-    if(this.isCompanion){
-      const visibleEnemies=enemies.filter(e=>!e.targetedBy||e.targetedBy===this);
-      let target=visibleEnemies.length>0?visibleEnemies.sort((a,b)=>b.y-a.y)[0]:null;
-      enemies.forEach(e=>{if(e.targetedBy===this&&e!==target)e.targetedBy=null;});
-      if(target){
-        target.targetedBy=this;
-        if(this.x<target.x-2)this.x+=this.speed; else if(this.x>target.x+2)this.x-=this.speed;
-        if(Math.abs(this.x-target.x)<5&&this.cooldown<=0){bullets.push(new Bullet(this.x,this.y-20,target)); this.cooldown=20;} else this.cooldown--;
+  update(delta){
+    if (this.isCompanion) {
+      // companions pick a target and follow horizontally (time-based movement)
+      const visibleEnemies = enemies.filter(e => !e.targetedBy || e.targetedBy === this);
+      const target = visibleEnemies.length > 0 ? visibleEnemies.sort((a,b) => b.y - a.y)[0] : null;
+      enemies.forEach(e => { if (e.targetedBy === this && e !== target) e.targetedBy = null; });
+      if (target) {
+        target.targetedBy = this;
+        const dx = target.x - this.x;
+        const move = Math.sign(dx) * Math.min(Math.abs(dx), this.speed * delta);
+        this.x += move;
+        const now = performance.now();
+        if (Math.abs(this.x - target.x) < 6 && now - this.lastFire >= this.fireIntervalMs) {
+          // fire homing bullet at the target; companion damage is 1 (upgrades apply to player only)
+          bullets.push(new Bullet(this.x, this.y - 20, target, 1));
+          this.lastFire = now;
+        }
       }
     } else {
-      if(keys['ArrowLeft']&&this.x-this.speed>0)this.x-=this.speed;
-      if(keys['ArrowRight']&&this.x+this.speed<canvas.width)this.x+=this.speed;
-      if(keys['ArrowUp']&&this.y-this.speed>0)this.y-=this.speed;
-      if(keys['ArrowDown']&&this.y+this.speed<canvas.height)this.y+=this.speed;
+      // player controlled movement (time-based)
+      if (keys['ArrowLeft'] && this.x - this.speed * delta > 0) this.x -= this.speed * delta;
+      if (keys['ArrowRight'] && this.x + this.speed * delta < canvas.width) this.x += this.speed * delta;
+      if (keys['ArrowUp'] && this.y - this.speed * delta > 0) this.y -= this.speed * delta;
+      if (keys['ArrowDown'] && this.y + this.speed * delta < canvas.height) this.y += this.speed * delta;
     }
   }
 }
 
 class Bullet {
-  constructor(x,y,target=null){this.x=x; this.y=y; this.radius=5; this.target=target; this.speed=10; this.color='cyan';}
-  draw(){ctx.shadowBlur=15;ctx.shadowColor=this.color;ctx.beginPath();ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);ctx.fillStyle=this.color;ctx.fill();ctx.shadowBlur=0;}
-  update(){
-    if(this.target && enemies.includes(this.target)){
-      const dx=(this.target.x+this.target.size/2)-this.x;
-      const dy=(this.target.y+this.target.size/2)-this.y;
-      const angle=Math.atan2(dy,dx);
-      this.x+=Math.cos(angle)*this.speed;
-      this.y+=Math.sin(angle)*this.speed;
-    } else { this.y-=this.speed; }
+  // optional target (homing), damage default 1
+  constructor(x,y,target=null,damage=1){
+    this.x = x; this.y = y;
+    this.radius = 5;
+    this.target = target; // if provided, will home to target
+    this.damage = damage || 1;
+    this.speed = 10 * 60; // px/sec (converted from 10 px/frame)
+    this.color = 'cyan';
+  }
+  draw(){
+    ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+    ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
+    ctx.fillStyle = this.color; ctx.fill(); ctx.shadowBlur = 0;
+  }
+  update(delta){
+    if (this.target && enemies.includes(this.target)) {
+      const dx = (this.target.x + this.target.size/2) - this.x;
+      const dy = (this.target.y + this.target.size/2) - this.y;
+      const angle = Math.atan2(dy, dx);
+      this.x += Math.cos(angle) * this.speed * delta;
+      this.y += Math.sin(angle) * this.speed * delta;
+    } else {
+      this.y -= this.speed * delta;
+    }
   }
 }
 
 class Enemy {
-  constructor(isBoss=false){this.size=isBoss?80:25; this.x=Math.random()*(canvas.width-this.size); this.y=-this.size-50;
-  this.speed=isBoss?2:3; this.health=isBoss?15:2; this.targetedBy=null; this.isBoss=isBoss;
-  this.color=isBoss?'orange':`hsl(${Math.random()*360},100%,50%)`;}
-  draw(){ctx.fillStyle=this.color; ctx.fillRect(this.x,this.y,this.size,this.size);}
-  update(){this.y+=this.speed;}
+  constructor(isBoss=false){
+    this.size = isBoss ? 80 : 25;
+    this.x = Math.random() * (canvas.width - this.size);
+    this.y = -this.size - 50;
+    // convert to px/sec:
+    this.speed = (isBoss ? 2 : 3) * 60; // px/sec (preserves original relative speeds)
+    this.health = isBoss ? 15 : 2;
+    this.targetedBy = null;
+    this.isBoss = isBoss;
+    this.color = isBoss ? 'orange' : `hsl(${Math.random()*360},100%,50%)`;
+  }
+  draw(){ ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.size, this.size); }
+  update(delta){ this.y += this.speed * delta; }
 }
 
 class MG {
-  constructor(x,y,isHeavy=false){this.x=x; this.y=y; this.width=40; this.height=20; this.color=isHeavy?'darkred':'darkgreen'; this.cooldown=0; this.angle=0; this.isHeavy=isHeavy;}
-  draw(){ctx.fillStyle=this.color; ctx.fillRect(this.x-this.width/2,this.y,this.width,this.height);
-    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle); ctx.fillStyle='black'; ctx.fillRect(-4,-20,8,20); ctx.restore();}
-  update(){
-    let closest=null,minDist=Infinity;
-    enemies.forEach(e=>{
-      const dx=(e.x+e.size/2)-this.x; const dy=(e.y+e.size/2)-this.y;
-      const d=Math.sqrt(dx*dx+dy*dy); if(d<minDist){minDist=d; closest=e;}
+  constructor(x,y,isHeavy=false){
+    this.x = x; this.y = y;
+    this.width = 40; this.height = 20;
+    this.color = isHeavy ? 'darkred' : 'darkgreen';
+    // use time-based firing
+    this.lastFire = 0;
+    // old cooldown values used frame counts (8 / 20 frames) -> convert to ms
+    this.fireIntervalMs = isHeavy ? Math.round(8 * FRAME_MS) : Math.round(20 * FRAME_MS);
+    this.angle = 0;
+    this.isHeavy = isHeavy;
+  }
+  draw(){
+    ctx.fillStyle = this.color; ctx.fillRect(this.x - this.width/2, this.y, this.width, this.height);
+    ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+    ctx.fillStyle = 'black'; ctx.fillRect(-4, -20, 8, 20); ctx.restore();
+  }
+  update(delta){
+    let closest = null, minDist = Infinity;
+    enemies.forEach(e => {
+      const dx = (e.x + e.size/2) - this.x;
+      const dy = (e.y + e.size/2) - this.y;
+      const d = Math.hypot(dx,dy);
+      if (d < minDist) { minDist = d; closest = e; }
     });
-    if(closest){
-      this.angle=Math.atan2(closest.y-this.y,closest.x-this.x);
-      if(this.cooldown<=0){
-        bullets.push(new Bullet(this.x,this.y,closest));
-        this.cooldown=this.isHeavy?8:20;
-      } else this.cooldown--;
+    if (closest) {
+      this.angle = Math.atan2(closest.y - this.y, closest.x - this.x);
+      const now = performance.now();
+      if (now - this.lastFire >= this.fireIntervalMs) {
+        // fire homing bullet at closest with default damage 1
+        bullets.push(new Bullet(this.x, this.y, closest, 1));
+        this.lastFire = now;
+      }
     }
   }
 }
 
-class SPG{
-  constructor(){this.x=canvas.width/2; this.y=canvas.height-35; this.width=70; this.height=30; this.color='darkgray'; this.cooldown=0; this.angle=0;}
-  draw(){ctx.fillStyle=this.color; ctx.fillRect(this.x-this.width/2,this.y,this.width,this.height);
-    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle); ctx.fillStyle='darkred'; ctx.fillRect(-5,-this.height/2-30,10,30); ctx.restore();}
-  update(){
-    let closest=null,minDist=Infinity;
-    enemies.forEach(e=>{
-      const dx=(e.x+e.size/2)-this.x; const dy=(e.y+e.size/2)-this.y;
-      const d=Math.sqrt(dx*dx+dy*dy); if(d<minDist){minDist=d; closest=e;}
+class SPG {
+  constructor(){
+    this.x = canvas.width/2; this.y = canvas.height-35;
+    this.width = 70; this.height = 30; this.color = 'darkgray';
+    this.lastFire = 0;
+    // original code used cooldown=1 (frame) => very rapid. Keep similar using time-based interval ~1 frame.
+    this.fireIntervalMs = Math.max(16, Math.round(1 * FRAME_MS)); // approx 16ms
+    this.angle = 0;
+  }
+  draw(){
+    ctx.fillStyle = this.color; ctx.fillRect(this.x-this.width/2,this.y,this.width,this.height);
+    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle);
+    ctx.fillStyle = 'darkred'; ctx.fillRect(-5,-this.height/2-30,10,30); ctx.restore();
+  }
+  update(delta){
+    let closest = null, minDist = Infinity;
+    enemies.forEach(e => {
+      const dx = (e.x + e.size/2) - this.x;
+      const dy = (e.y + e.size/2) - this.y;
+      const d = Math.hypot(dx,dy);
+      if (d < minDist) { minDist = d; closest = e; }
     });
-    if(closest){
-      this.angle=Math.atan2((closest.y+closest.size/2)-this.y,(closest.x+closest.size/2)-this.x)-Math.PI/2;
-      if(this.cooldown<=0){
-        bullets.push(new Bullet(this.x,this.y,closest));
-        this.cooldown=1;
-      } else this.cooldown--;
+    if (closest) {
+      this.angle = Math.atan2((closest.y + closest.size/2) - this.y, (closest.x + closest.size/2) - this.x) - Math.PI/2;
+      const now = performance.now();
+      if (now - this.lastFire >= this.fireIntervalMs) {
+        bullets.push(new Bullet(this.x, this.y, closest, 1));
+        this.lastFire = now;
+      }
     }
   }
 }
 
-const player=new Player(canvas.width/2,canvas.height-150);
-const companions=[
+/* =================== Setup entities =================== */
+const player = new Player(canvas.width/2, canvas.height - 150);
+const companions = [
   new Player(canvas.width/2+120,canvas.height-190,'Lucky',true),
   new Player(canvas.width/2-120,canvas.height-190,'Mc. Melan',true),
   new Player(canvas.width/2+160,canvas.height-230,'George',true),
@@ -163,57 +340,179 @@ const companions=[
 ];
 activeCompanions.push(...companions);
 
-const mgLeft=new MG(canvas.width/2-100,canvas.height-60,true);
-const mgRight=new MG(canvas.width/2+100,canvas.height-60,true);
-const spg=new SPG();
+const mgLeft = new MG(canvas.width/2 - 100, canvas.height - 60, true);
+const mgRight = new MG(canvas.width/2 + 100, canvas.height - 60, true);
+const spg = new SPG();
 
-function shoot(){ bullets.push(new Bullet(player.x,player.y-20)); }
-function spawnEnemy(){ const count=1+Math.floor(level/2); for(let i=0;i<count;i++) enemies.push(new Enemy()); if(level%5===0) enemies.push(new Enemy(true)); }
-setInterval(spawnEnemy,1500);
+/* =================== Shooting (player) =================== */
+function shoot(){
+  if (isGameOver || isPaused) return;
+  const now = performance.now();
+  if (now - lastShot < fireRateMs) return;
+  lastShot = now;
 
-function updateScoreboard(){document.getElementById('scoreboard').textContent=`Score: ${score}`;}
-function updateLevelDisplay(){document.getElementById('levelDisplay').textContent=`Level: ${level}`;}
-function updateHealthDisplay(){document.getElementById('healthDisplay').textContent=`Health: ${playerHealth}`;}
-
-const btnLeft=document.getElementById('btnLeft'),btnRight=document.getElementById('btnRight');
-const btnUp=document.getElementById('btnUp'),btnDown=document.getElementById('btnDown'),btnShoot=document.getElementById('btnShoot');
-btnLeft.onpointerdown=()=>keys['ArrowLeft']=true;btnLeft.onpointerup=()=>keys['ArrowLeft']=false;
-btnRight.onpointerdown=()=>keys['ArrowRight']=true;btnRight.onpointerup=()=>keys['ArrowRight']=false;
-btnUp.onpointerdown=()=>keys['ArrowUp']=true;btnUp.onpointerup=()=>keys['ArrowUp']=false;
-btnDown.onpointerdown=()=>keys['ArrowDown']=true;btnDown.onpointerup=()=>keys['ArrowDown']=false;
-btnShoot.onclick=shoot;
-document.getElementById('menuButton').onclick=()=>{window.location.href='game.html';};
-
-window.addEventListener('keydown',e=>keys[e.key]=true);
-window.addEventListener('keyup',e=>{ keys[e.key]=false; if(e.key===' ') shoot(); });
-
-function animate(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  player.update(); player.draw();
-  activeCompanions.forEach(c=>{c.update(); c.draw();});
-  spg.update(); spg.draw();
-  mgLeft.update(); mgLeft.draw(); mgRight.update(); mgRight.draw();
-  bullets.forEach((b,i)=>{
-    b.update(); b.draw();
-    if(b.y<0||b.y>canvas.height||b.x<0||b.x>canvas.width) bullets.splice(i,1);
-  });
-  enemies.forEach((e,i)=>{
-    e.update(); e.draw();
-    bullets.forEach((b,bi)=>{
-      const dx=b.x-(e.x+e.size/2); const dy=b.y-(e.y+e.size/2);
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<b.radius+e.size/2){
-        e.health--;
-        bullets.splice(bi,1);
-        if(e.health<=0){enemies.splice(i,1); score+=e.isBoss?100:10; updateScoreboard(); if(score%100===0){level++; updateLevelDisplay();} }
-      }
-    });
-    if(e.y>canvas.height){playerHealth--; updateHealthDisplay(); enemies.splice(i,1);}
-  });
-  if(playerHealth<=0){isGameOver=true; alert('Defeated! Returning to menu.'); window.location.href='games.html';}
-  requestAnimationFrame(animate);
+  const y = player.y - 20;
+  // spread bullets centered at player.x
+  const spread = 10;
+  for (let i = 0; i < playerBulletCount; i++){
+    const offset = (i - (playerBulletCount - 1)/2) * spread;
+    bullets.push(new Bullet(player.x + offset, y, null, playerBulletDamage));
+  }
 }
-animate();
+
+/* =================== Enemy spawn (constant interval) =================== */
+function spawnEnemy(){
+  if (!isGameOver && !isPaused) {
+    const count = 1 + Math.floor(level/2); // only count increases per level (not speed)
+    for (let i=0;i<count;i++) enemies.push(new Enemy());
+    if (level % 5 === 0) enemies.push(new Enemy(true));
+  }
+}
+setInterval(spawnEnemy, 1500); // constant spawn interval, never changed by upgrades
+
+/* =================== HUD helpers =================== */
+function updateScoreboard(){ document.getElementById('scoreboard').textContent = `Score: ${score}`; }
+function updateLevelDisplay(){ document.getElementById('levelDisplay').textContent = `Level: ${level}`; }
+function updateHealthDisplay(){ document.getElementById('healthDisplay').textContent = `Health: ${playerHealth}`; }
+
+/* =================== Controls =================== */
+document.getElementById('btnUp').onpointerdown = () => keys['ArrowUp'] = true;
+document.getElementById('btnUp').onpointerup   = () => keys['ArrowUp'] = false;
+document.getElementById('btnDown').onpointerdown = () => keys['ArrowDown'] = true;
+document.getElementById('btnDown').onpointerup  = () => keys['ArrowDown'] = false;
+document.getElementById('btnShoot').onpointerdown = shoot;
+document.getElementById('btnShoot').onclick = shoot;
+
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); shoot(); }
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+/* =================== Defeat UI =================== */
+function gameOver(){
+  isGameOver = true;
+  stopLoop();
+  document.getElementById('finalScore').textContent = `Score: ${score}`;
+  document.getElementById('finalLevel').textContent = `Level: ${level}`;
+  document.getElementById('defeatOverlay').classList.add('show');
+}
+function restartGame(){ window.location.reload(); }
+
+/* =================== Main loop (time-based) =================== */
+function loop(timestamp){
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const deltaMs = timestamp - lastTimestamp;
+  const delta = deltaMs / 1000; // delta seconds
+  lastTimestamp = timestamp;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if (isGameOver) { running = false; return; }
+
+  // updates (pass delta seconds)
+  player.update(delta); player.draw();
+  activeCompanions.forEach(c => { c.update(delta); c.draw(); });
+
+  spg.update(delta); spg.draw();
+  mgLeft.update(delta); mgLeft.draw();
+  mgRight.update(delta); mgRight.draw();
+
+  // bullets
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.update(delta); b.draw();
+    if (b.y < -50 || b.y > canvas.height + 50 || b.x < -50 || b.x > canvas.width + 50) {
+      bullets.splice(i,1);
+    }
+  }
+
+  // enemies and collisions
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    e.update(delta); e.draw();
+
+    // check bullet collisions (loop backwards for safe splice)
+    for (let bi = bullets.length - 1; bi >= 0; bi--) {
+      const b = bullets[bi];
+      const dx = b.x - (e.x + e.size/2);
+      const dy = b.y - (e.y + e.size/2);
+      const dist = Math.hypot(dx, dy);
+      if (dist < b.radius + e.size/2) {
+        e.health -= (b.damage || 1);
+        bullets.splice(bi,1);
+        if (e.health <= 0) {
+          enemies.splice(i,1);
+          score += e.isBoss ? 100 : 10;
+          updateScoreboard();
+          if (score % 100 === 0) {
+            level++;
+            updateLevelDisplay();
+            if (level % 10 === 0) showUpgradeOverlay();
+          }
+        }
+        break; // bullet gone, move to next enemy
+      }
+    }
+
+    // enemy passed bottom -> damage player
+    if (e && e.y > canvas.height) {
+      playerHealth--; updateHealthDisplay();
+      enemies.splice(i,1);
+    }
+  }
+
+  if (playerHealth <= 0) gameOver();
+
+  rafId = requestAnimationFrame(loop);
+}
+
+/* start/stop loop (safe single RAF) */
+function startLoop(){
+  if (!running) { running = true; lastTimestamp = 0; rafId = requestAnimationFrame(loop); }
+}
+function stopLoop(){
+  if (running) { cancelAnimationFrame(rafId); running = false; lastTimestamp = 0; }
+}
+
+/* =================== Upgrades (only requested ones) =================== */
+const upgrades = [
+  { name: "+1 Damage", apply: ()=> { playerBulletDamage += 1; } },
+  { name: "+1 Bullet", apply: ()=> { playerBulletCount += 1; } },
+  { name: "-Cooldown", apply: ()=> { fireRateMs = Math.max(80, fireRateMs - 50); } }, // min cooldown 80ms
+  { name: "+2 Health", apply: ()=> { playerHealth += 2; updateHealthDisplay(); } }
+];
+
+function showUpgradeOverlay(){
+  isPaused = true;
+  stopLoop(); // pause RAF loop so nothing advances while choosing
+  document.getElementById('upgradeOverlay').classList.add('show');
+  const container = document.getElementById('upgradeChoices');
+  container.innerHTML = "";
+  const choices = [...upgrades].sort(()=>0.5 - Math.random()).slice(0,3);
+  choices.forEach(up => {
+    const btn = document.createElement('button');
+    btn.className = 'upgradeBtn';
+    btn.textContent = up.name;
+    btn.onclick = () => { up.apply(); hideUpgradeOverlay(); };
+    container.appendChild(btn);
+  });
+}
+
+function hideUpgradeOverlay(){
+  document.getElementById('upgradeOverlay').classList.remove('show');
+  isPaused = false;
+  startLoop();
+}
+
+/* =================== Start game =================== */
+startLoop();
+
+/* =================== Resize safety =================== */
+window.addEventListener('resize', ()=>{
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
 </script>
+
 </body>
 </html>
