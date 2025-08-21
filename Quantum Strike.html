@@ -17,20 +17,6 @@ canvas { display:block; }
 #scoreboard { right:10px; }
 #healthDisplay { left:10px; top:40px; color:rgb(255,80,80); text-shadow:0 0 6px red; }
 
-/* Mobile Controls */
-#mobileControls {
-  position:absolute; bottom:30px; width:100%;
-  display:flex; justify-content:space-between; padding:0 20px;
-}
-#mobileControls button {
-  font-size:26px; width:70px; height:70px; margin:5px;
-  border:none; border-radius:15px;
-  background:rgba(0,255,255,0.25); color:white;
-  box-shadow:0 0 15px cyan inset, 0 0 10px cyan;
-  transition:0.1s;
-}
-#mobileControls button:active { transform:scale(0.9); background:rgba(0,255,255,0.5); }
-
 /* Back to Menu */
 #menuButton {
   position:absolute; top:70px; left:10px; font-size:18px; padding:5px 10px;
@@ -55,6 +41,7 @@ canvas { display:block; }
   color:white; cursor:pointer;
   box-shadow:0 0 15px cyan;
 }
+.defeatBtn:hover { background:rgba(0,255,255,0.5); }
 
 /* Upgrade Overlay */
 #upgradeOverlay {
@@ -83,7 +70,57 @@ canvas { display:block; }
 }
 .upgradeBtn:hover { transform: scale(1.05); background:#1d4ed8; }
 
-.defeatBtn:hover { background:rgba(0,255,255,0.5); }
+/* Mobile Controls */
+#mobileControls {
+  position: absolute;
+  bottom: 30px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+  align-items: center;
+}
+
+#btnShoot {
+  font-size: 26px;
+  width: 70px;
+  height: 70px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 255, 255, 0.25);
+  color: white;
+  box-shadow: 0 0 15px cyan inset, 0 0 10px cyan;
+  transition: 0.1s;
+}
+#btnShoot:active { transform: scale(0.9); background: rgba(0,255,255,0.5); }
+
+/* Joystick styling */
+#joystickContainer {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  touch-action: none;
+}
+
+#joystickBase {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+  border: 2px solid cyan;
+}
+
+#joystickThumb {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background: rgba(0,255,255,0.4);
+  border-radius: 50%;
+  top: 35px;
+  left: 35px;
+  touch-action: none;
+}
 </style>
 </head>
 <body>
@@ -111,17 +148,17 @@ canvas { display:block; }
   </div>
 </div>
 
-<!-- Mobile Controls -->
+<!-- Mobile Controls: Joystick + Shoot -->
 <div id="mobileControls">
-  <div>
-    <button id="btnUp">▲</button>
-    <button id="btnDown">▼</button>
+  <div id="joystickContainer">
+    <div id="joystickBase"></div>
+    <div id="joystickThumb"></div>
   </div>
   <button id="btnShoot">🔥</button>
 </div>
 
 <script>
-/* =================== Basic setup =================== */
+/* =================== Canvas & Context =================== */
 const canvas = document.getElementById('spaceCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
@@ -132,46 +169,27 @@ let score = 0, level = 1, playerHealth = 5;
 let bullets = [], enemies = [], activeCompanions = [];
 let keys = {}, isGameOver = false, isPaused = false;
 
-/* =================== Player upgrades (only these) =================== */
+/* =================== Player upgrades =================== */
 let playerBulletDamage = 1;   // "+1 Damage"
 let playerBulletCount = 1;    // "+1 Bullet"
-let fireRateMs = 400;         // "-Cooldown" reduces this (min enforced)
+let fireRateMs = 400;         // "-Cooldown"
 let lastShot = 0;
 
-/* =================== Time / RAF control =================== */
+/* =================== Time / RAF =================== */
 let running = false, rafId = null, lastTimestamp = 0;
 const FRAME_MS = 1000 / 60;
 
-/* =================== Mobile swipe ------------------ */
-let touchStartX = 0, touchStartY = 0, touchActive = false;
-canvas.addEventListener('touchstart', (e) => {
-  const t = e.touches[0];
-  touchStartX = t.clientX; touchStartY = t.clientY; touchActive = true;
-});
-canvas.addEventListener('touchmove', (e) => {
-  if (!touchActive) return;
-  const t = e.touches[0];
-  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 30) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
-    else if (dx < -30) { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
-  }
-});
-canvas.addEventListener('touchend', () => { keys['ArrowLeft'] = false; keys['ArrowRight'] = false; touchActive = false; });
-
 /* =================== Entities =================== */
-/* NOTE: speeds are time-based (px/sec) to avoid any frame-count dependence -> prevents "speeding up" */
 class Player {
   constructor(x,y,name='',isComp=false){
     this.x = x; this.y = y;
     this.width = 20; this.height = 20;
     this.color = isComp ? 'lime' : '#00ffff';
-    // convert previous frame-based speeds (6/10 px/frame) -> px/sec at 60fps
     this.speed = isComp ? 6 * 60 : 10 * 60; // px/sec
     this.isCompanion = isComp;
     this.name = name;
     this.lastFire = 0;
-    this.fireIntervalMs = 20 * FRAME_MS; // companion default firing interval in ms (20 frames)
+    this.fireIntervalMs = 20 * FRAME_MS;
     this.cooldown = 0;
   }
   draw(){
@@ -188,7 +206,6 @@ class Player {
   }
   update(delta){
     if (this.isCompanion) {
-      // companions pick a target and follow horizontally (time-based movement)
       const visibleEnemies = enemies.filter(e => !e.targetedBy || e.targetedBy === this);
       const target = visibleEnemies.length > 0 ? visibleEnemies.sort((a,b) => b.y - a.y)[0] : null;
       enemies.forEach(e => { if (e.targetedBy === this && e !== target) e.targetedBy = null; });
@@ -199,29 +216,24 @@ class Player {
         this.x += move;
         const now = performance.now();
         if (Math.abs(this.x - target.x) < 6 && now - this.lastFire >= this.fireIntervalMs) {
-          // fire homing bullet at the target; companion damage is 1 (upgrades apply to player only)
           bullets.push(new Bullet(this.x, this.y - 20, target, 1));
           this.lastFire = now;
         }
       }
     } else {
-      // player controlled movement (time-based)
-      if (keys['ArrowLeft'] && this.x - this.speed * delta > 0) this.x -= this.speed * delta;
-      if (keys['ArrowRight'] && this.x + this.speed * delta < canvas.width) this.x += this.speed * delta;
-      if (keys['ArrowUp'] && this.y - this.speed * delta > 0) this.y -= this.speed * delta;
-      if (keys['ArrowDown'] && this.y + this.speed * delta < canvas.height) this.y += this.speed * delta;
+      updatePlayerFromJoystick(delta);
+      updatePlayerFromKeyboard(delta);
     }
   }
 }
 
 class Bullet {
-  // optional target (homing), damage default 1
   constructor(x,y,target=null,damage=1){
     this.x = x; this.y = y;
     this.radius = 5;
-    this.target = target; // if provided, will home to target
+    this.target = target;
     this.damage = damage || 1;
-    this.speed = 10 * 60; // px/sec (converted from 10 px/frame)
+    this.speed = 10 * 60;
     this.color = 'cyan';
   }
   draw(){
@@ -236,9 +248,7 @@ class Bullet {
       const angle = Math.atan2(dy, dx);
       this.x += Math.cos(angle) * this.speed * delta;
       this.y += Math.sin(angle) * this.speed * delta;
-    } else {
-      this.y -= this.speed * delta;
-    }
+    } else { this.y -= this.speed * delta; }
   }
 }
 
@@ -247,8 +257,7 @@ class Enemy {
     this.size = isBoss ? 80 : 25;
     this.x = Math.random() * (canvas.width - this.size);
     this.y = -this.size - 50;
-    // convert to px/sec:
-    this.speed = (isBoss ? 2 : 3) * 60; // px/sec (preserves original relative speeds)
+    this.speed = (isBoss ? 2 : 3) * 60;
     this.health = isBoss ? 15 : 2;
     this.targetedBy = null;
     this.isBoss = isBoss;
@@ -258,77 +267,7 @@ class Enemy {
   update(delta){ this.y += this.speed * delta; }
 }
 
-class MG {
-  constructor(x,y,isHeavy=false){
-    this.x = x; this.y = y;
-    this.width = 40; this.height = 20;
-    this.color = isHeavy ? 'darkred' : 'darkgreen';
-    // use time-based firing
-    this.lastFire = 0;
-    // old cooldown values used frame counts (8 / 20 frames) -> convert to ms
-    this.fireIntervalMs = isHeavy ? Math.round(8 * FRAME_MS) : Math.round(20 * FRAME_MS);
-    this.angle = 0;
-    this.isHeavy = isHeavy;
-  }
-  draw(){
-    ctx.fillStyle = this.color; ctx.fillRect(this.x - this.width/2, this.y, this.width, this.height);
-    ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
-    ctx.fillStyle = 'black'; ctx.fillRect(-4, -20, 8, 20); ctx.restore();
-  }
-  update(delta){
-    let closest = null, minDist = Infinity;
-    enemies.forEach(e => {
-      const dx = (e.x + e.size/2) - this.x;
-      const dy = (e.y + e.size/2) - this.y;
-      const d = Math.hypot(dx,dy);
-      if (d < minDist) { minDist = d; closest = e; }
-    });
-    if (closest) {
-      this.angle = Math.atan2(closest.y - this.y, closest.x - this.x);
-      const now = performance.now();
-      if (now - this.lastFire >= this.fireIntervalMs) {
-        // fire homing bullet at closest with default damage 1
-        bullets.push(new Bullet(this.x, this.y, closest, 1));
-        this.lastFire = now;
-      }
-    }
-  }
-}
-
-class SPG {
-  constructor(){
-    this.x = canvas.width/2; this.y = canvas.height-35;
-    this.width = 70; this.height = 30; this.color = 'darkgray';
-    this.lastFire = 0;
-    // original code used cooldown=1 (frame) => very rapid. Keep similar using time-based interval ~1 frame.
-    this.fireIntervalMs = Math.max(16, Math.round(1 * FRAME_MS)); // approx 16ms
-    this.angle = 0;
-  }
-  draw(){
-    ctx.fillStyle = this.color; ctx.fillRect(this.x-this.width/2,this.y,this.width,this.height);
-    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle);
-    ctx.fillStyle = 'darkred'; ctx.fillRect(-5,-this.height/2-30,10,30); ctx.restore();
-  }
-  update(delta){
-    let closest = null, minDist = Infinity;
-    enemies.forEach(e => {
-      const dx = (e.x + e.size/2) - this.x;
-      const dy = (e.y + e.size/2) - this.y;
-      const d = Math.hypot(dx,dy);
-      if (d < minDist) { minDist = d; closest = e; }
-    });
-    if (closest) {
-      this.angle = Math.atan2((closest.y + closest.size/2) - this.y, (closest.x + closest.size/2) - this.x) - Math.PI/2;
-      const now = performance.now();
-      if (now - this.lastFire >= this.fireIntervalMs) {
-        bullets.push(new Bullet(this.x, this.y, closest, 1));
-        this.lastFire = now;
-      }
-    }
-  }
-}
-
-/* =================== Setup entities =================== */
+/* =================== Setup Entities =================== */
 const player = new Player(canvas.width/2, canvas.height - 150);
 const companions = [
   new Player(canvas.width/2+120,canvas.height-190,'Lucky',true),
@@ -340,179 +279,243 @@ const companions = [
 ];
 activeCompanions.push(...companions);
 
-const mgLeft = new MG(canvas.width/2 - 100, canvas.height - 60, true);
-const mgRight = new MG(canvas.width/2 + 100, canvas.height - 60, true);
-const spg = new SPG();
-
-/* =================== Shooting (player) =================== */
-function shoot(){
-  if (isGameOver || isPaused) return;
-  const now = performance.now();
-  if (now - lastShot < fireRateMs) return;
-  lastShot = now;
-
-  const y = player.y - 20;
-  // spread bullets centered at player.x
-  const spread = 10;
-  for (let i = 0; i < playerBulletCount; i++){
-    const offset = (i - (playerBulletCount - 1)/2) * spread;
-    bullets.push(new Bullet(player.x + offset, y, null, playerBulletDamage));
+/* =================== MG & SPG =================== */
+class MG {
+  constructor(x,y,isHeavy=false){
+    this.x = x; this.y = y;
+    this.width = 40; this.height = 20;
+    this.color = isHeavy ? 'darkred' : 'darkgreen';
+    this.lastFire = 0;
+    this.fireIntervalMs = isHeavy ? Math.round(8*FRAME_MS) : Math.round(20*FRAME_MS);
+    this.angle = 0;
   }
-}
-
-/* =================== Enemy spawn (constant interval) =================== */
-function spawnEnemy(){
-  if (!isGameOver && !isPaused) {
-    const count = 1 + Math.floor(level/2); // only count increases per level (not speed)
-    for (let i=0;i<count;i++) enemies.push(new Enemy());
-    if (level % 5 === 0) enemies.push(new Enemy(true));
+  draw(){
+    ctx.fillStyle = this.color; ctx.fillRect(this.x-this.width/2,this.y,this.width,this.height);
+    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle);
+    ctx.fillStyle = 'black'; ctx.fillRect(-4,-20,8,20); ctx.restore();
   }
-}
-setInterval(spawnEnemy, 1500); // constant spawn interval, never changed by upgrades
-
-/* =================== HUD helpers =================== */
-function updateScoreboard(){ document.getElementById('scoreboard').textContent = `Score: ${score}`; }
-function updateLevelDisplay(){ document.getElementById('levelDisplay').textContent = `Level: ${level}`; }
-function updateHealthDisplay(){ document.getElementById('healthDisplay').textContent = `Health: ${playerHealth}`; }
-
-/* =================== Controls =================== */
-document.getElementById('btnUp').onpointerdown = () => keys['ArrowUp'] = true;
-document.getElementById('btnUp').onpointerup   = () => keys['ArrowUp'] = false;
-document.getElementById('btnDown').onpointerdown = () => keys['ArrowDown'] = true;
-document.getElementById('btnDown').onpointerup  = () => keys['ArrowDown'] = false;
-document.getElementById('btnShoot').onpointerdown = shoot;
-document.getElementById('btnShoot').onclick = shoot;
-
-window.addEventListener('keydown', e => {
-  keys[e.key] = true;
-  if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); shoot(); }
-});
-window.addEventListener('keyup', e => { keys[e.key] = false; });
-
-/* =================== Defeat UI =================== */
-function gameOver(){
-  isGameOver = true;
-  stopLoop();
-  document.getElementById('finalScore').textContent = `Score: ${score}`;
-  document.getElementById('finalLevel').textContent = `Level: ${level}`;
-  document.getElementById('defeatOverlay').classList.add('show');
-}
-function restartGame(){ window.location.reload(); }
-
-/* =================== Main loop (time-based) =================== */
-function loop(timestamp){
-  if (!lastTimestamp) lastTimestamp = timestamp;
-  const deltaMs = timestamp - lastTimestamp;
-  const delta = deltaMs / 1000; // delta seconds
-  lastTimestamp = timestamp;
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  if (isGameOver) { running = false; return; }
-
-  // updates (pass delta seconds)
-  player.update(delta); player.draw();
-  activeCompanions.forEach(c => { c.update(delta); c.draw(); });
-
-  spg.update(delta); spg.draw();
-  mgLeft.update(delta); mgLeft.draw();
-  mgRight.update(delta); mgRight.draw();
-
-  // bullets
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i];
-    b.update(delta); b.draw();
-    if (b.y < -50 || b.y > canvas.height + 50 || b.x < -50 || b.x > canvas.width + 50) {
-      bullets.splice(i,1);
-    }
-  }
-
-  // enemies and collisions
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
-    e.update(delta); e.draw();
-
-    // check bullet collisions (loop backwards for safe splice)
-    for (let bi = bullets.length - 1; bi >= 0; bi--) {
-      const b = bullets[bi];
-      const dx = b.x - (e.x + e.size/2);
-      const dy = b.y - (e.y + e.size/2);
-      const dist = Math.hypot(dx, dy);
-      if (dist < b.radius + e.size/2) {
-        e.health -= (b.damage || 1);
-        bullets.splice(bi,1);
-        if (e.health <= 0) {
-          enemies.splice(i,1);
-          score += e.isBoss ? 100 : 10;
-          updateScoreboard();
-          if (score % 100 === 0) {
-            level++;
-            updateLevelDisplay();
-            if (level % 10 === 0) showUpgradeOverlay();
-          }
-        }
-        break; // bullet gone, move to next enemy
+  update(delta){
+    let closest=null,minDist=Infinity;
+    enemies.forEach(e=>{
+      const dx=(e.x+e.size/2)-this.x;
+      const dy=(e.y+e.size/2)-this.y;
+      const d=Math.hypot(dx,dy);
+      if(d<minDist){ minDist=d; closest=e; }
+    });
+    if(closest){ 
+      this.angle=Math.atan2(closest.y-this.y,closest.x-this.x);
+      const now=performance.now();
+      if(now-this.lastFire>=this.fireIntervalMs){
+        bullets.push(new Bullet(this.x,this.y,closest,1));
+        this.lastFire=now;
       }
     }
+  }
+}
 
-    // enemy passed bottom -> damage player
-    if (e && e.y > canvas.height) {
-      playerHealth--; updateHealthDisplay();
-      enemies.splice(i,1);
+class SPG {
+  constructor(){
+    this.x=canvas.width/2; this.y=canvas.height-35;
+    this.width=70; this.height=30; this.color='darkgray';
+    this.lastFire=0;
+    this.fireIntervalMs=Math.max(16,Math.round(1*FRAME_MS));
+    this.angle=0;
+  }
+  draw(){
+    ctx.fillStyle=this.color; ctx.fillRect(this.x-this.width/2,this.y,this.width,this.height);
+    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.angle);
+    ctx.fillStyle='darkred'; ctx.fillRect(-5,-this.height/2-30,10,30); ctx.restore();
+  }
+  update(delta){
+    let closest=null,minDist=Infinity;
+    enemies.forEach(e=>{
+      const dx=(e.x+e.size/2)-this.x;
+      const dy=(e.y+e.size/2)-this.y;
+      const d=Math.hypot(dx,dy);
+      if(d<minDist){ minDist=d; closest=e; }
+    });
+    if(closest){
+      this.angle=Math.atan2((closest.y+closest.size/2)-this.y,(closest.x+closest.size/2)-this.x)-Math.PI/2;
+      const now=performance.now();
+      if(now-this.lastFire>=this.fireIntervalMs){
+        bullets.push(new Bullet(this.x,this.y,closest,1));
+        this.lastFire=now;
+      }
     }
   }
-
-  if (playerHealth <= 0) gameOver();
-
-  rafId = requestAnimationFrame(loop);
 }
 
-/* start/stop loop (safe single RAF) */
-function startLoop(){
-  if (!running) { running = true; lastTimestamp = 0; rafId = requestAnimationFrame(loop); }
-}
-function stopLoop(){
-  if (running) { cancelAnimationFrame(rafId); running = false; lastTimestamp = 0; }
-}
+const mgLeft = new MG(canvas.width/2-100,canvas.height-60,true);
+const mgRight = new MG(canvas.width/2+100,canvas.height-60,true);
+const spg = new SPG();
 
-/* =================== Upgrades (only requested ones) =================== */
-const upgrades = [
-  { name: "+1 Damage", apply: ()=> { playerBulletDamage += 1; } },
-  { name: "+1 Bullet", apply: ()=> { playerBulletCount += 1; } },
-  { name: "-Cooldown", apply: ()=> { fireRateMs = Math.max(80, fireRateMs - 50); } }, // min cooldown 80ms
-  { name: "+2 Health", apply: ()=> { playerHealth += 2; updateHealthDisplay(); } }
-];
-
-function showUpgradeOverlay(){
-  isPaused = true;
-  stopLoop(); // pause RAF loop so nothing advances while choosing
-  document.getElementById('upgradeOverlay').classList.add('show');
-  const container = document.getElementById('upgradeChoices');
-  container.innerHTML = "";
-  const choices = [...upgrades].sort(()=>0.5 - Math.random()).slice(0,3);
-  choices.forEach(up => {
-    const btn = document.createElement('button');
-    btn.className = 'upgradeBtn';
-    btn.textContent = up.name;
-    btn.onclick = () => { up.apply(); hideUpgradeOverlay(); };
-    container.appendChild(btn);
-  });
+/* =================== Shooting =================== */
+function shoot(){
+  if(isGameOver||isPaused) return;
+  const now=performance.now();
+  if(now-lastShot<fireRateMs) return;
+  lastShot=now;
+  const y=player.y-20;
+  const spread=10;
+  for(let i=0;i<playerBulletCount;i++){
+    const offset=(i-(playerBulletCount-1)/2)*spread;
+    bullets.push(new Bullet(player.x+offset,y,null,playerBulletDamage));
+  }
 }
 
-function hideUpgradeOverlay(){
-  document.getElementById('upgradeOverlay').classList.remove('show');
-  isPaused = false;
+/* =================== Enemy Spawn =================== */
+function spawnEnemy(){
+  if(!isGameOver&&!isPaused){
+    const count=1+Math.floor(level/2);
+    for(let i=0;i<count;i++) enemies.push(new Enemy());
+    if(level%5===0) enemies.push(new Enemy(true));
+  }
+}
+setInterval(spawnEnemy,1500);
+
+/* =================== HUD =================== */
+function updateScoreboard(){ document.getElementById('scoreboard').textContent=`Score: ${score}`; }
+function updateLevelDisplay(){ document.getElementById('levelDisplay').textContent=`Level: ${level}`; }
+function updateHealthDisplay(){ document.getElementById('healthDisplay').textContent=`Health: ${playerHealth}`; }
+
+/* =================== Controls =================== */
+document.getElementById('btnShoot').addEventListener('pointerdown',shoot);
+
+/* =================== Keyboard Controls =================== */
+keys={up:false,down:false,left:false,right:false};
+window.addEventListener('keydown',e=>{
+  if(['ArrowUp','KeyW'].includes(e.code)) keys.up=true;
+  if(['ArrowDown','KeyS'].includes(e.code)) keys.down=true;
+  if(['ArrowLeft','KeyA'].includes(e.code)) keys.left=true;
+  if(['ArrowRight','KeyD'].includes(e.code)) keys.right=true;
+  if(e.code==='Space') shoot();
+});
+window.addEventListener('keyup',e=>{
+  if(['ArrowUp','KeyW'].includes(e.code)) keys.up=false;
+  if(['ArrowDown','KeyS'].includes(e.code)) keys.down=false;
+  if(['ArrowLeft','KeyA'].includes(e.code)) keys.left=false;
+  if(['ArrowRight','KeyD'].includes(e.code)) keys.right=false;
+});
+
+/* =================== Update from keyboard =================== */
+function updatePlayerFromKeyboard(delta){
+  let dx=0,dy=0;
+  if(keys.left) dx-=1; if(keys.right) dx+=1;
+  if(keys.up) dy-=1; if(keys.down) dy+=1;
+  const mag=Math.hypot(dx,dy);
+  if(mag>0){ dx/=mag; dy/=mag; player.x+=dx*player.speed*delta; player.y+=dy*player.speed*delta; }
+  player.x=Math.max(0,Math.min(canvas.width,player.x));
+  player.y=Math.max(0,Math.min(canvas.height,player.y));
+}
+
+/* =================== JOYSTICK =================== */
+let joystickActive=false;
+let joystickX=0,joystickY=0;
+const joystickThumb=document.getElementById('joystickThumb');
+const joystickBase=document.getElementById('joystickBase');
+const joystickRadius=50;
+
+function clamp(val,min,max){ return Math.max(min,Math.min(max,val)); }
+
+joystickThumb.addEventListener('pointerdown',e=>{ joystickActive=true; joystickThumb.setPointerCapture(e.pointerId); });
+joystickThumb.addEventListener('pointermove',e=>{
+  if(joystickActive){
+    const rect=joystickBase.getBoundingClientRect();
+    let x=e.clientX-(rect.left+rect.width/2);
+    let y=e.clientY-(rect.top+rect.height/2);
+    const dist=Math.hypot(x,y);
+    if(dist>joystickRadius){ x=x/dist*joystickRadius; y=y/dist*joystickRadius; }
+    joystickX=x/joystickRadius; joystickY=y/joystickRadius;
+    joystickThumb.style.transform=`translate(${x}px,${y}px)`;
+  }
+});
+joystickThumb.addEventListener('pointerup',e=>{
+  joystickActive=false; joystickX=0; joystickY=0;
+  joystickThumb.style.transform='translate(0px,0px)';
+});
+
+function updatePlayerFromJoystick(delta){
+  if(Math.abs(joystickX)>0.05 || Math.abs(joystickY)>0.05){
+    player.x+=joystickX*player.speed*delta;
+    player.y+=joystickY*player.speed*delta;
+    player.x=clamp(player.x,0,canvas.width);
+    player.y=clamp(player.y,0,canvas.height);
+  }
+}
+
+/* =================== Game Over =================== */
+function gameOver(){
+  isGameOver=true;
+  document.getElementById('finalScore').textContent=`Score: ${score}`;
+  document.getElementById('finalLevel').textContent=`Level: ${level}`;
+  document.getElementById('defeatOverlay').classList.add('show');
+}
+function restartGame(){
+  score=0; level=1; playerHealth=5; bullets=[]; enemies=[]; isGameOver=false;
+  player.x=canvas.width/2; player.y=canvas.height-150;
+  updateScoreboard(); updateLevelDisplay(); updateHealthDisplay();
+  document.getElementById('defeatOverlay').classList.remove('show');
   startLoop();
 }
 
-/* =================== Start game =================== */
-startLoop();
-
-/* =================== Resize safety =================== */
-window.addEventListener('resize', ()=>{
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+/* =================== Resize =================== */
+window.addEventListener('resize',()=>{
+  const wRatio=window.innerWidth/canvas.width;
+  const hRatio=window.innerHeight/canvas.height;
+  player.x*=wRatio; player.y*=hRatio;
+  activeCompanions.forEach(c=>{ c.x*=wRatio; c.y*=hRatio; });
+  mgLeft.x*=wRatio; mgLeft.y*=hRatio;
+  mgRight.x*=wRatio; mgRight.y*=hRatio;
+  spg.x*=wRatio; spg.y*=hRatio;
+  canvas.width=window.innerWidth; canvas.height=window.innerHeight;
 });
-</script>
 
+/* =================== Game Loop =================== */
+function update(delta){
+  if(isGameOver||isPaused) return;
+  player.update(delta);
+  activeCompanions.forEach(c=>c.update(delta));
+  bullets.forEach(b=>b.update(delta));
+  enemies.forEach(e=>e.update(delta));
+  mgLeft.update(delta); mgRight.update(delta); spg.update(delta);
+
+  bullets=bullets.filter(b=>b.y>0&&b.y<canvas.height&&(b.target===null||enemies.includes(b.target)));
+  enemies=enemies.filter(e=>{ 
+    if(e.y>canvas.height){ playerHealth--; updateHealthDisplay(); if(playerHealth<=0) gameOver(); return false; }
+    return true; 
+  });
+
+  bullets.forEach(b=>{
+    enemies.forEach(e=>{
+      if(e && Math.hypot(e.x+e.size/2-b.x,e.y+e.size/2-b.y)<b.radius+e.size/2){
+        e.health-=b.damage; b.damage=0;
+        if(e.health<=0){ enemies.splice(enemies.indexOf(e),1); score+=e.isBoss?10:1; updateScoreboard(); }
+      }
+    });
+  });
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  player.draw();
+  activeCompanions.forEach(c=>c.draw());
+  bullets.forEach(b=>b.draw());
+  enemies.forEach(e=>e.draw());
+  mgLeft.draw(); mgRight.draw(); spg.draw();
+}
+
+function loop(timestamp){
+  if(!running) return;
+  const delta=(timestamp-lastTimestamp)/1000;
+  lastTimestamp=timestamp;
+  update(delta);
+  draw();
+  rafId=requestAnimationFrame(loop);
+}
+function startLoop(){ running=true; lastTimestamp=performance.now(); rafId=requestAnimationFrame(loop); }
+function stopLoop(){ running=false; cancelAnimationFrame(rafId); }
+
+startLoop();
+</script>
 </body>
 </html>
