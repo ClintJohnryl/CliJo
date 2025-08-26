@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explore - CliJo</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top, #0f2027, #121212);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Glowing animated background grid */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: moveGrid 20s linear infinite;
+      z-index: -1;
+    }
+    @keyframes moveGrid {
+      from { background-position: 0 0, 0 0; }
+      to { background-position: 100px 100px, 100px 100px; }
+    }
+
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 123, 255, 0.2);
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #007bff;
+      color: #fff;
+      text-decoration: none;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(5px);
+    }
+    .back-btn:hover {
+      background: #007bff;
+      box-shadow: 0 0 15px #007bff;
+    }
+
+    h1 {
+      font-size: 2.8em;
+      margin: 80px 20px 40px;
+      text-align: center;
+      background: linear-gradient(90deg, #007bff, #00eaff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 5px #007bff; }
+      to { text-shadow: 0 0 20px #00eaff; }
+    }
+
+    .explore-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      width: 100%;
+      max-width: 1200px;
+      padding: 20px;
+    }
+
+    .explore-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      text-align: center;
+      padding: 40px 20px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 123, 255, 0.2);
+    }
+    .explore-card:hover {
+      transform: translateY(-12px) scale(1.05);
+      box-shadow: 0 0 30px rgba(0, 123, 255, 0.7);
+      border-color: #00eaff;
+    }
+
+    .explore-card i {
+      font-size: 2.5em;
+      margin-bottom: 15px;
+      color: #00eaff;
+      transition: transform 0.3s ease;
+    }
+    .explore-card:hover i {
+      transform: scale(1.2) rotate(10deg);
+      color: #fff;
+    }
+
+    .explore-card h2 {
+      margin: 10px 0;
+      font-size: 1.5em;
+    }
+
+    .explore-card p {
+      font-size: 0.95em;
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+
+  <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back</a>
+
+  <h1>Explore CliJo</h1>
+
+  <div class="explore-grid">
+    <div class="explore-card" onclick="location.href='project1.html'">
+      <i class="fas fa-code"></i>
+      <h2>Project One</h2>
+      <p>Cutting-edge web creations.</p>
+    </div>
+    <div class="explore-card" onclick="location.href='project2.html'">
+      <i class="fas fa-brain"></i>
+      <h2>Project Two</h2>
+      <p>Smart solutions with logic.</p>
+    </div>
+    <div class="explore-card" onclick="location.href='concepts.html'">
+      <i class="fas fa-lightbulb"></i>
+      <h2>Concepts</h2>
+      <p>Innovative design ideas.</p>
+    </div>
+    <div class="explore-card" onclick="location.href='gallery.html'">
+      <i class="fas fa-images"></i>
+      <h2>Gallery</h2>
+      <p>Visual showcase of our journey.</p>
+    </div>
+	<div class="explore-card" onclick="location.href='games.html'">
+      <i class="fas fa-gamepad"></i>
+      <h2>Mini-Games</h2>
+      <p>To entertain visitors or users.</p>
+	  <p>Will be added soon.</p>
+    </div>
+  <div class="explore-card" onclick="location.href=''">
+      <i class="fas fa-gamepad"></i>
+      <h2>Qulator</h2>
+      <p>To help users with quick calculations.</p>
+	  <p>Will be added soon.</p>
+    </div>
+  </div>
+
+</body>
+</html>
