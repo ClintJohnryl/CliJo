@@ -146,56 +146,57 @@
     }
 	
 	/* List setup */
+/* Contact section container */
+#contactBar {
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Remove list styling */
 #contactBar ul {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
 }
 
-/* Neon button style */
+/* Space between bars */
+#contactBar ul li {
+  margin: 10px 0;
+}
+
+/* The actual bar links */
 #contactBar ul li a {
-  display: inline-block;
-  padding: 12px 25px;
-  text-decoration: none;
-  color: #fff;
-  background: #111;             /* button base color */
-  border: 2px solid yellow;   /* neon border color */
-  border-radius: 12px;          /* rounded corners */
-  text-align: center;
-  font-weight: bold;
-  box-shadow: 0 0 10px #00d0ff;
-  transition: 0.3s all ease-in-out;
-  position: relative;
-}
-
-/* Glow animation on hover */
-#contactBar ul li a:hover {
+  display: block;              /* ✅ fill parent width */
+  max-width: 300px;            /* ✅ keep them neat on desktop */
+  margin: 0 auto;              /* ✅ center them */
+  padding: 12px;
+  background: transparent;
+  border: 2px solid yellow;
+  border-radius: 8px;
   color: yellow;
-  box-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff, 0 0 60px #ff00ff;
-  transform: scale(1.1);
+  font-weight: bold;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 8px yellow;
+  word-wrap: break-word;       /* ✅ prevent long text from overflowing */
 }
 
-/* Optional: moving neon glow */
-#contactBar ul li a::before {
-  content: '';
-  position: absolute;
-  top: -2px; left: -2px;
-  width: calc(100% + 4px);
-  height: calc(100% + 4px);
-  border-radius: 12px;
-  background: linear-gradient(45deg, #ff00ff, #00ffff, #ff00ff);
-  z-index: -1;
-  filter: blur(10px);
-  opacity: 0;
-  transition: 0.3s;
+/* Hover effect */
+#contactBar ul li a:hover {
+  background: yellow;
+  color: #121212;
+  box-shadow: 0 0 15px yellow;
 }
 
-#contactBar ul li a:hover::before {
-  opacity: 1;
+/* ✅ Responsive (auto resize for mobile) */
+@media (max-width: 600px) {
+  #contactBar ul li a {
+    width: 90%;    /* ✅ almost full width */
+    max-width: none;
+  }
 }
+
 
 .hero-headline {
   font-size: 3.5em;
@@ -260,6 +261,9 @@
   
 	<div id="updatesBar" class="slide-bar">
     <h2>Updates</h2>
+	<h1>Update 1.1</h1>
+    <p>We updated the list setup in contact</p>
+	</div>
 	<h1>Update 1.0</h1>
     <p>We Change the name from CliJo to QuanCliX</p>
 	</div>
@@ -364,6 +368,7 @@
 </body>
 
 </html>
+
 
 
 
