@@ -18,6 +18,40 @@
       --sidebar-width: 220px;
       --main-margin: 240px;
       --header-height: 70px;
+      --season-name: "Default";
+    }
+    
+    /* Seasonal Themes */
+    .season-winter {
+      --primary: #4dabf5;
+      --secondary: #a5d8ff;
+      --accent: #ff8787;
+      --dark-bg: #0f1a2a;
+      --season-name: "Winter";
+    }
+    
+    .season-spring {
+      --primary: #69db7c;
+      --secondary: #b2f2bb;
+      --accent: #ffa94d;
+      --dark-bg: #1a2f1a;
+      --season-name: "Spring";
+    }
+    
+    .season-summer {
+      --primary: #ffd43b;
+      --secondary: #ffec99;
+      --accent: #ff6b6b;
+      --dark-bg: #2a1f0f;
+      --season-name: "Summer";
+    }
+    
+    .season-autumn {
+      --primary: #e8590c;
+      --secondary: #ffc078;
+      --accent: #cc5de8;
+      --dark-bg: #2a1a0f;
+      --season-name: "Autumn";
     }
     
     * {
@@ -34,7 +68,48 @@
       display: flex;
       min-height: 100vh;
       overflow-x: hidden;
-      transition: background 0.5s ease;
+      transition: all 0.8s ease;
+    }
+
+    /* Seasonal Background Overlays */
+    .season-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+      opacity: 0.15;
+      transition: opacity 0.8s ease;
+    }
+    
+    .winter-overlay {
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(180, 220, 255, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(230, 240, 255, 0.2) 0%, transparent 50%),
+        linear-gradient(45deg, rgba(100, 150, 200, 0.1) 0%, transparent 50%);
+    }
+    
+    .spring-overlay {
+      background: 
+        radial-gradient(circle at 30% 70%, rgba(150, 240, 180, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 70% 30%, rgba(220, 255, 200, 0.2) 0%, transparent 50%),
+        linear-gradient(45deg, rgba(120, 220, 160, 0.1) 0%, transparent 50%);
+    }
+    
+    .summer-overlay {
+      background: 
+        radial-gradient(circle at 40% 60%, rgba(255, 230, 100, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 60% 40%, rgba(255, 240, 150, 0.2) 0%, transparent 50%),
+        linear-gradient(45deg, rgba(255, 200, 80, 0.1) 0%, transparent 50%);
+    }
+    
+    .autumn-overlay {
+      background: 
+        radial-gradient(circle at 25% 75%, rgba(220, 150, 80, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 75% 25%, rgba(240, 180, 100, 0.2) 0%, transparent 50%),
+        linear-gradient(45deg, rgba(200, 130, 60, 0.1) 0%, transparent 50%);
     }
 
     /* Background grid */
@@ -49,11 +124,22 @@
                         linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
       background-size: 50px 50px;
       animation: moveGrid 25s linear infinite;
-      z-index: -1;
+      z-index: -2;
     }
     @keyframes moveGrid {
       from { background-position: 0 0, 0 0; }
       to { background-position: 100px 100px, 100px 100px; }
+    }
+
+    /* Particle System */
+    #particles-js {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      z-index: -1;
+      pointer-events: none;
     }
 
     /* Header for mobile */
@@ -152,6 +238,26 @@
       margin: auto;
     }
     
+    /* Season indicator */
+    .season-indicator {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.3);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .season-indicator i {
+      color: var(--secondary);
+    }
+    
     /* Search and filter */
     .search-container {
       max-width: 600px;
@@ -236,10 +342,28 @@
       display: block;
       text-decoration: none;
       color: inherit;
+      overflow: hidden;
     }
+    
+    /* Enhanced card hover effects */
+    .explore-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transition: left 0.7s ease;
+    }
+    
+    .explore-card:hover::before {
+      left: 100%;
+    }
+    
     .explore-card:hover {
       transform: translateY(-10px);
-      box-shadow: 0 8px 25px rgba(0, 123, 255, 0.6);
+      box-shadow: 0 8px 25px var(--primary);
       border-color: var(--secondary);
     }
 
@@ -248,6 +372,8 @@
       margin-bottom: 15px;
       color: var(--secondary);
       transition: transform 0.3s ease;
+      position: relative;
+      z-index: 2;
     }
     .explore-card:hover i {
       transform: scale(1.15) rotate(5deg);
@@ -257,10 +383,14 @@
     .explore-card h2 {
       margin: 10px 0;
       font-size: clamp(1.1rem, 3vw, 1.4rem);
+      position: relative;
+      z-index: 2;
     }
     .explore-card p {
       font-size: clamp(0.85rem, 2vw, 1rem);
       color: var(--text-secondary);
+      position: relative;
+      z-index: 2;
     }
     
     .explore-card .card-footer {
@@ -268,6 +398,8 @@
       display: flex;
       justify-content: center;
       gap: 10px;
+      position: relative;
+      z-index: 2;
     }
     .card-footer .stat {
       display: flex;
@@ -293,6 +425,7 @@
       background: var(--primary);
       color: #fff;
       text-transform: uppercase;
+      z-index: 3;
     }
     .label.soon { background: var(--accent); }
     .label.popular { background: #ffa502; }
@@ -391,6 +524,11 @@
       .welcome h1 {
         margin-top: 0;
       }
+      
+      .season-indicator {
+        top: 80px;
+        right: 15px;
+      }
     }
     
     @media (max-width: 640px) {
@@ -480,6 +618,34 @@
     .resize-indicator.visible {
       opacity: 1;
     }
+    
+    /* Live stats counter */
+    .counter {
+      font-weight: bold;
+      transition: color 0.3s ease;
+    }
+    .counter.animating {
+      color: var(--secondary);
+    }
+    
+    /* Seasonal decorations */
+    .season-decoration {
+      position: fixed;
+      pointer-events: none;
+      z-index: -1;
+      opacity: 0.3;
+      transition: opacity 0.8s ease;
+    }
+    
+    .snowflake, .flower, .sun, .leaf {
+      position: absolute;
+      animation: float 15s infinite linear;
+    }
+    
+    @keyframes float {
+      0% { transform: translateY(-10px) rotate(0deg); }
+      100% { transform: translateY(100vh) rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -509,11 +675,25 @@
   <!-- Overlay for mobile -->
   <div class="overlay" id="overlay"></div>
 
+  <!-- Seasonal Overlays -->
+  <div class="season-overlay winter-overlay" id="winterOverlay"></div>
+  <div class="season-overlay spring-overlay" id="springOverlay"></div>
+  <div class="season-overlay summer-overlay" id="summerOverlay"></div>
+  <div class="season-overlay autumn-overlay" id="autumnOverlay"></div>
+
+  <!-- Particle System Container -->
+  <div id="particles-js"></div>
+
   <!-- Resize indicator -->
   <div class="resize-indicator" id="resizeIndicator"></div>
 
   <!-- Main content -->
   <div class="main">
+    <div class="season-indicator" id="seasonIndicator">
+      <i class="fas fa-leaf" id="seasonIcon"></i>
+      <span id="seasonText">Season</span>
+    </div>
+    
     <section class="welcome">
       <h1>Welcome to Qauzium Dashboard</h1>
       <p>Explore projects, concepts, and interactive tools. Designed for both PC and mobile with a clean dashboard layout.</p>
@@ -543,8 +723,8 @@
         <h2>Project One</h2>
         <p>Cutting-edge web creations.</p>
         <div class="card-footer">
-          <span class="stat"><i class="fas fa-eye"></i> 0</span>
-          <span class="stat"><i class="fas fa-star"></i> 0</span>
+          <span class="stat"><i class="fas fa-eye"></i> <span class="counter" data-target="0">0</span></span>
+          <span class="stat"><i class="fas fa-star"></i> <span class="counter" data-target="0">0</span></span>
         </div>
       </a>
       
@@ -553,8 +733,8 @@
         <h2>Project Two</h2>
         <p>Smart solutions with logic.</p>
         <div class="card-footer">
-          <span class="stat"><i class="fas fa-eye"></i> 0</span>
-          <span class="stat"><i class="fas fa-star"></i> 0</span>
+          <span class="stat"><i class="fas fa-eye"></i> <span class="counter" data-target="0">0</span></span>
+          <span class="stat"><i class="fas fa-star"></i> <span class="counter" data-target="0">0</span></span>
         </div>
       </a>
       
@@ -563,8 +743,8 @@
         <h2>Concepts</h2>
         <p>Innovative design ideas.</p>
         <div class="card-footer">
-          <span class="stat"><i class="fas fa-eye"></i> 0</span>
-          <span class="stat"><i class="fas fa-star"></i> 0</span>
+          <span class="stat"><i class="fas fa-eye"></i> <span class="counter" data-target="0">0</span></span>
+          <span class="stat"><i class="fas fa-star"></i> <span class="counter" data-target="0">0</span></span>
         </div>
       </a>
       
@@ -573,8 +753,8 @@
         <h2>Gallery</h2>
         <p>Visual showcase of our journey.</p>
         <div class="card-footer">
-          <span class="stat"><i class="fas fa-eye"></i> 0</span>
-          <span class="stat"><i class="fas fa-star"></i> 0</span>
+          <span class="stat"><i class="fas fa-eye"></i> <span class="counter" data-target="0">0</span></span>
+          <span class="stat"><i class="fas fa-star"></i> <span class="counter" data-target="0">0</span></span>
         </div>
       </a>
       
@@ -584,8 +764,8 @@
         <h2>Mini-Games</h2>
         <p>Fun for visitors on Windows.</p>
         <div class="card-footer">
-          <span class="stat"><i class="fas fa-eye"></i> 4</span>
-          <span class="stat"><i class="fas fa-star"></i> 0</span>
+          <span class="stat"><i class="fas fa-eye"></i> <span class="counter" data-target="4">0</span></span>
+          <span class="stat"><i class="fas fa-star"></i> <span class="counter" data-target="0">0</span></span>
         </div>
       </a>
       
@@ -595,13 +775,16 @@
         <h2>Qulator</h2>
         <p>Quick calculations and graphs.</p>
         <div class="card-footer">
-          <span class="stat"><i class="fas fa-eye"></i> 0</span>
-          <span class="stat"><i class="fas fa-star"></i> 0</span>
+          <span class="stat"><i class="fas fa-eye"></i> <span class="counter" data-target="0">0</span></span>
+          <span class="stat"><i class="fas fa-star"></i> <span class="counter" data-target="0">0</span></span>
         </div>
       </a>
     </div>
   </div>
 
+  <!-- Include particles.js library -->
+  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  
   <script>
     // DOM Elements
     const sidebar = document.getElementById('sidebar');
@@ -614,6 +797,207 @@
     const loader = document.getElementById('loader');
     const themeToggle = document.getElementById('theme-toggle');
     const resizeIndicator = document.getElementById('resizeIndicator');
+    const seasonIndicator = document.getElementById('seasonIndicator');
+    const seasonText = document.getElementById('seasonText');
+    const seasonIcon = document.getElementById('seasonIcon');
+    
+    // Seasonal data
+    const seasons = {
+      winter: {
+        name: "Winter",
+        icon: "fa-snowflake",
+        months: [11, 0, 1], // Dec, Jan, Feb
+        colors: {
+          primary: "#4dabf5",
+          secondary: "#a5d8ff",
+          accent: "#ff8787",
+          bg: "#0f1a2a"
+        }
+      },
+      spring: {
+        name: "Spring",
+        icon: "fa-seedling",
+        months: [2, 3, 4], // Mar, Apr, May
+        colors: {
+          primary: "#69db7c",
+          secondary: "#b2f2bb",
+          accent: "#ffa94d",
+          bg: "#1a2f1a"
+        }
+      },
+      summer: {
+        name: "Summer",
+        icon: "fa-sun",
+        months: [5, 6, 7], // Jun, Jul, Aug
+        colors: {
+          primary: "#ffd43b",
+          secondary: "#ffec99",
+          accent: "#ff6b6b",
+          bg: "#2a1f0f"
+        }
+      },
+      autumn: {
+        name: "Autumn",
+        icon: "fa-leaf",
+        months: [8, 9, 10], // Sep, Oct, Nov
+        colors: {
+          primary: "#e8590c",
+          secondary: "#ffc078",
+          accent: "#cc5de8",
+          bg: "#2a1a0f"
+        }
+      }
+    };
+    
+    // Function to determine current season
+    function getCurrentSeason() {
+      const now = new Date();
+      const month = now.getMonth();
+      
+      for (const [season, data] of Object.entries(seasons)) {
+        if (data.months.includes(month)) {
+          return season;
+        }
+      }
+      
+      return "winter"; // Default fallback
+    }
+    
+    // Apply seasonal theme
+    function applySeasonalTheme(season) {
+      const seasonData = seasons[season];
+      
+      // Remove all season classes
+      document.body.classList.remove("season-winter", "season-spring", "season-summer", "season-autumn");
+      
+      // Hide all seasonal overlays
+      document.querySelectorAll('.season-overlay').forEach(overlay => {
+        overlay.style.opacity = "0";
+      });
+      
+      // Apply the current season class
+      document.body.classList.add(`season-${season}`);
+      
+      // Show the current season overlay
+      const currentOverlay = document.getElementById(`${season}Overlay`);
+      if (currentOverlay) {
+        currentOverlay.style.opacity = "0.15";
+      }
+      
+      // Update season indicator
+      seasonText.textContent = seasonData.name;
+      seasonIcon.className = `fas ${seasonData.icon}`;
+      
+      // Update particles for the season
+      updateParticles(season);
+      
+      // Add seasonal decorations
+      addSeasonalDecorations(season);
+    }
+    
+    // Update particles based on season
+    function updateParticles(season) {
+      const seasonColors = seasons[season].colors;
+      
+      if (window.pJSDom && window.pJSDom[0] && window.pJSDom[0].pJS) {
+        const pJS = window.pJSDom[0].pJS;
+        
+        // Update particle colors
+        pJS.particles.color.value = seasonColors.secondary;
+        pJS.particles.line_linked.color = seasonColors.primary;
+        
+        // Refresh particles
+        pJS.fn.particlesRefresh();
+      }
+    }
+    
+    // Add seasonal decorations
+    function addSeasonalDecorations(season) {
+      // Remove existing decorations
+      document.querySelectorAll('.season-decoration').forEach(el => el.remove());
+      
+      const decorationContainer = document.createElement('div');
+      decorationContainer.className = 'season-decoration';
+      document.body.appendChild(decorationContainer);
+      
+      // Add decorations based on season
+      const count = 15; // Number of decorations
+      
+      for (let i = 0; i < count; i++) {
+        const decoration = document.createElement('div');
+        
+        // Set random position
+        const left = Math.random() * 100;
+        const animationDelay = Math.random() * 15;
+        
+        decoration.style.left = `${left}%`;
+        decoration.style.animationDelay = `${animationDelay}s`;
+        
+        // Set decoration type based on season
+        switch(season) {
+          case 'winter':
+            decoration.className = 'snowflake';
+            decoration.innerHTML = '❄';
+            decoration.style.fontSize = `${Math.random() * 12 + 10}px`;
+            break;
+          case 'spring':
+            decoration.className = 'flower';
+            decoration.innerHTML = '🌸';
+            decoration.style.fontSize = `${Math.random() * 14 + 12}px`;
+            break;
+          case 'summer':
+            decoration.className = 'sun';
+            decoration.innerHTML = '☀️';
+            decoration.style.fontSize = `${Math.random() * 16 + 14}px`;
+            break;
+          case 'autumn':
+            decoration.className = 'leaf';
+            decoration.innerHTML = '🍁';
+            decoration.style.fontSize = `${Math.random() * 14 + 12}px`;
+            break;
+        }
+        
+        decorationContainer.appendChild(decoration);
+      }
+    }
+    
+    // Initialize particle system
+    function initParticles() {
+      particlesJS('particles-js', {
+        particles: {
+          number: { value: 40, density: { enable: true, value_area: 800 } },
+          color: { value: "#00eaff" },
+          shape: { type: "circle" },
+          opacity: { value: 0.5, random: true },
+          size: { value: 3, random: true },
+          line_linked: {
+            enable: true,
+            distance: 150,
+            color: "#007bff",
+            opacity: 0.2,
+            width: 1
+          },
+          move: {
+            enable: true,
+            speed: 1,
+            direction: "none",
+            random: true,
+            straight: false,
+            out_mode: "out",
+            bounce: false
+          }
+        },
+        interactivity: {
+          detect_on: "canvas",
+          events: {
+            onhover: { enable: true, mode: "repulse" },
+            onclick: { enable: true, mode: "push" },
+            resize: true
+          }
+        },
+        retina_detect: true
+      });
+    }
     
     // Mobile sidebar toggle
     sidebarToggle.addEventListener('click', () => {
@@ -670,26 +1054,37 @@
       });
     });
     
-    // Theme toggle functionality
+    // Theme toggle functionality with enhanced transition
     themeToggle.addEventListener('click', (e) => {
       e.preventDefault();
-      const isDark = document.body.classList.toggle('light-theme');
       
-      if (isDark) {
-        themeToggle.innerHTML = '<i class="fas fa-sun"></i> Light Mode';
-        // Update CSS variables for light theme
-        document.documentElement.style.setProperty('--dark-bg', '#f5f5f5');
-        document.documentElement.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.8)');
-        document.documentElement.style.setProperty('--text-primary', '#333');
-        document.documentElement.style.setProperty('--text-secondary', '#666');
-      } else {
-        themeToggle.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
-        // Revert to dark theme variables
-        document.documentElement.style.setProperty('--dark-bg', '#121212');
-        document.documentElement.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.05)');
-        document.documentElement.style.setProperty('--text-primary', '#fff');
-        document.documentElement.style.setProperty('--text-secondary', '#bbb');
-      }
+      // Add transition class to body for smooth theme change
+      document.body.classList.add('theme-transition');
+      
+      setTimeout(() => {
+        const isDark = document.body.classList.toggle('light-theme');
+        
+        if (isDark) {
+          themeToggle.innerHTML = '<i class="fas fa-sun"></i> Light Mode';
+          // Update CSS variables for light theme
+          document.documentElement.style.setProperty('--dark-bg', '#f5f5f5');
+          document.documentElement.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.8)');
+          document.documentElement.style.setProperty('--text-primary', '#333');
+          document.documentElement.style.setProperty('--text-secondary', '#666');
+        } else {
+          themeToggle.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
+          // Revert to dark theme variables
+          document.documentElement.style.setProperty('--dark-bg', '#121212');
+          document.documentElement.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.05)');
+          document.documentElement.style.setProperty('--text-primary', '#fff');
+          document.documentElement.style.setProperty('--text-secondary', '#bbb');
+        }
+        
+        // Remove transition class after theme change
+        setTimeout(() => {
+          document.body.classList.remove('theme-transition');
+        }, 500);
+      }, 100);
     });
     
     // Animate cards on page load
@@ -697,7 +1092,46 @@
       exploreCards.forEach((card, index) => {
         card.style.animationDelay = `${index * 0.1}s`;
       });
+      
+      // Initialize counters
+      animateCounters();
+      
+      // Initialize particles
+      initParticles();
+      
+      // Apply seasonal theme
+      const currentSeason = getCurrentSeason();
+      applySeasonalTheme(currentSeason);
     });
+    
+    // Animated counter functionality
+    function animateCounters() {
+      const counters = document.querySelectorAll('.counter');
+      
+      counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-target'));
+        const duration = 1500; // Animation duration in ms
+        const step = target / (duration / 16); // 60fps
+        let current = 0;
+        
+        const updateCounter = () => {
+          current += step;
+          if (current < target) {
+            counter.textContent = Math.floor(current);
+            requestAnimationFrame(updateCounter);
+          } else {
+            counter.textContent = target;
+            counter.classList.remove('animating');
+          }
+        };
+        
+        // Add animating class and start animation
+        counter.classList.add('animating');
+        setTimeout(() => {
+          updateCounter();
+        }, 500); // Delay start for better visual effect
+      });
+    }
     
     // Window resize handler
     let resizeTimeout;
@@ -733,6 +1167,3 @@
   </script>
 </body>
 </html>
-
-
-
